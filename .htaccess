@@ -1,0 +1,22 @@
+# 将 RewriteEngine 模式打开
+RewriteEngine On
+RewriteBase /
+
+#禁止显示目录列表
+Options -Indexes
+
+# Rewrite 系统规则请勿修改
+RewriteCond %{QUERY_STRING} ^(.*)$
+
+
+#tag 伪静态
+RewriteRule ^(tag|Tag)-(.*?)-([0-9]+)\.html$ index.php?g=Tags&m=Index&a=index&tag=$2&page=$3
+RewriteRule ^(tag|Tag)-(.*?)\.html$ index.php?g=Tags&m=Index&a=index&tag=$2
+RewriteRule ^(tagid|Tagid)-([0-9]+)-([0-9]+)\.html$ index.php?g=Tags&m=Index&a=index&tag=$2&page=$3
+RewriteRule ^(tagid|Tagid)-([0-9]+)\.html$ index.php?g=Tags&m=Index&a=index&tagid=$2
+#列表
+RewriteRule ^list-([0-9]+)\.html$ index.php?g=Contents&m=Index&a=lists&catid=$1
+RewriteRule ^list-([0-9]+)-([0-9]+)\.html$ index.php?g=Contents&m=Index&a=lists&catid=$1&page=$2
+#首页
+RewriteRule ^index\.shtml$ index.php?g=Contents&m=Index&a=index
+RewriteRule ^index_([0-9]+)\.shtml$ index.php?g=Contents&m=Index&a=index&page=$1

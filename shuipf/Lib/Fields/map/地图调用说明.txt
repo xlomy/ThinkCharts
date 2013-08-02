@@ -1,0 +1,82 @@
+使用地图字段，还需要在模板中加入如下JS代码：
+
+51地图
+说明：其中的map_51是字段名称，如果你不是这个字段，替换全部map_51为你的字段。
+-----------------------------------------------------------------------------------------
+<div class="box">
+			<div class="map_back" id="map51" style="width:698px;height:250px"></div>
+			<script language='javascript' src='http://api.51ditu.com/js/maps.js'></script>
+			<script language='javascript'>
+				var maps = new LTMaps( 'map51' ); 
+				maps.centerAndZoom(new LTPoint({$map_51[0]},{$map_51[1]}),{$map_51[2]});
+				var c = new LTSmallMapControl(); 
+				 maps.addControl(c); 
+				 var point = new LTPoint( {$map_51[0]} , {$map_51[1]} ); 
+				 var marker = new LTMarker( point ); 
+				maps.addOverLay( marker ); 
+				 var text = new LTMapText( marker ); 
+				text.setLabel( '{$title}' ); 
+				 maps.addOverLay( text ); 
+
+			</script>
+</div>
+
+--------------------------------------------------------------------------------------------
+谷歌地图：
+说明：其中的map_gg是字段名称，如果你不是这个字段，替换全部map_gg为你的字段。
+<div class="box">
+  <div class="map_back" id="maparea" style="width:698px;height:250px"></div>
+  <script src="http://ditu.google.cn/maps?file=api&ie=gb2312&oe=gb2312&hl=zh-CN&v=2&key=ABQIAAAAo8SHyxPUU0PK0eLil2cLRBSSGBl6roAVsF5OwNUmdfPCykquaBSXr6BCI5V3QN9qE7__SLZuGP8hCQ" type="text/javascript"></script> 
+  <script type="text/javascript">
+function initialize() {
+  var message = "{$title}";
+ 
+  if (GBrowserIsCompatible()) {
+    var map = new GMap2(document.getElementById("maparea"));
+	var latlng = new GLatLng({$map_gg[0]},{$map_gg[1]});
+	map.addOverlay(createMarker(latlng, 1));
+    map.setCenter(latlng, 14);
+	map.addControl(new GLargeMapControl());
+  
+    // 在给定点创建标记
+    // 点击标记时会隐藏它
+    function createMarker(latlng, number) {
+      var marker = new GMarker(latlng);
+      marker.value = number;
+      GEvent.addListener(marker,"click", function() {
+        var myHtml = "<b>#" + number + "</b><br/>" + message;
+        map.openInfoWindowHtml(latlng, myHtml);
+      });
+      return marker;
+	}
+     
+    
+  }
+}
+initialize();
+</script> 
+</div>
+
+--------------------------------------------------------------------------------
+图吧 地图
+说明：其中的map_tuba是字段名称，如果你不是这个字段，替换全部map_tuba为你的字段。
+<div class="box">
+  <div class="map_back" id="mapbar" style="width:698px;height:250px"></div>
+  <script type="text/javascript" src="http://union.mapbar.com/apis/maps/free?f=mapi&v=31.2&k=aCW9cItqL6GtcBNocy4eb79hNeD5MYMhMHTsMhVsNeFsMREeNyT=@Yb9MbMM9MbMCtsVbCMFs9C@9T=9te9cs9htsFsebMeMC99Bc=ecteMMthB99bcFMM@eRCGcFG5="></script> 
+  <script type="text/javascript">
+		var maplet = null;
+		function initMap(){
+			maplet = new Maplet("mapbar");
+			maplet.centerAndZoom(new MPoint({$map_tuba[1]},{$map_tuba[0]}), 8);
+			maplet.addControl(new MStandardControl());
+
+			var marker = new MMarker(
+				new MPoint({$map_tuba[1]},{$map_tuba[0]}),
+				new MIcon("http://union.mapbar.com/apidoc/images/tb1.gif",32,32)
+			);
+
+			maplet.addOverlay(marker);
+		}
+		initMap();
+	</script> 
+</div>

@@ -1,0 +1,453 @@
+<?php
+
+/* * 字段管理
+ * Some rights reserved：abc3210.com
+ * Contact email:admin@abc3210.com
+ */
+
+class Sitemodel_fieldAction extends AdminbaseAction {
+
+    private $modelfield, $fields;
+
+    function _initialize() {
+        parent::_initialize();
+        $this->modelfield = D("Model_field");
+        //字段类型存放目录
+        $this->fields = C("SHUIPF_FIELDS_PATH");
+        $this->assign("show_header", true);
+    }
+
+    /**
+     * 显示字段列表
+     */
+    public function index() {
+        $modelid = $this->_get("modelid");
+        //载入字段配置文件
+        require $this->fields . "fields.inc.php";
+        $model = M("Model")->where(array("modelid" => $modelid))->find();
+        //根据模型读取字段列表
+        $data = $this->modelfield->Modelfield($modelid);
+
+        //不允许删除的字段，这些字段讲不会在字段添加处显示
+        $this->assign("not_allow_fields", $not_allow_fields);
+        //允许添加但必须唯一的字段
+        $this->assign("unique_fields", $unique_fields);
+        //禁止被禁用的字段列表
+        $this->assign("forbid_fields", $forbid_fields);
+        //禁止被删除的字段列表
+        $this->assign("forbid_delete", $forbid_delete);
+        //可以追加 JS和CSS 的字段
+        $this->assign("att_css_js", $att_css_js);
+        $this->assign("modelinfo", $model);
+        $this->assign("modelid", $modelid);
+        $this->assign("data", $data);
+        $this->display();
+    }
+
+    /**
+     * 编辑字段
+     */
+    public function edit() {
+        if (IS_POST) {
+            require $this->fields . "fields.inc.php";
+            //读取模型配置 以后优化缓存形式
+            $model_cache = F("Model");
+            //模型ID
+            $modelid = (int) $this->_post("modelid");
+            //字段ID
+            $fieldid = (int) $this->_post("fieldid");
+            //表名获取
+            $model_table = $model_cache[$modelid]['tablename'];
+            //完整表名获取 判断主表 还是副表
+            $tablename = $this->_post("issystem") ? C("DB_PREFIX") . $model_table : C("DB_PREFIX") . $model_table . "_data";
+            if (!$this->modelfield->table_exists($model_table)) {
+                $this->error("数据表不存在！");
+            }
+            //字段信息
+            $fielddata = $this->modelfield->where(array("fieldid" => $fieldid, "modelid" => $modelid))->find();
+            //所编辑的字段名
+            $field = $_POST['field'];
+            //字符长度取值范围
+            $minlength = $_POST['minlength'] ? $_POST['minlength'] : 0;
+            $maxlength = $_POST['maxlength'] ? $_POST['maxlength'] : 0;
+
+            //旧字段名
+            $oldfield = $_POST['oldfield'];
+            $field_type = $_POST['formtype'];
+
+            //载入对应字段配置信息
+            $fiepath = $this->fields . $field_type . DIRECTORY_SEPARATOR;
+            require($fiepath . "config.inc.php");
+            //字段类型
+            if (isset($_POST['setting']['fieldtype'])) {
+                $field_type = $_POST['setting']['fieldtype'];
+            }
+
+            $data['fieldid'] = $fieldid;
+            $data['field'] = $field; //字段名
+            $data['name'] = $_POST['name']; //字段别名
+            $data['tips'] = $_POST['tips']; //字段提示
+            $data['formattribute'] = $_POST['formattribute']; //表单附加属性
+            $data['css'] = $_POST['css']; //表单样式名
+            $data['minlength'] = $minlength; //最小值
+            $data['maxlength'] = $maxlength; //最大值
+            $data['pattern'] = $_POST['pattern']; //数据校验正则
+            $data['errortips'] = $_POST['errortips']; //数据校验未通过的提示信息
+            $data['isbase'] = $_POST['isbase'] ? 1 : 0; //作为基本信息
+            $data['isadd'] = $_POST['isadd'] ? 1 : 0; //在前台投稿中显示
+            $data['isomnipotent'] = $_POST['isomnipotent'] ? 1 : 0; //作为万能字段的附属字段 1 是
+            $data['isposition'] = $_POST['isposition'] ? 1 : 0; //是否入库到推荐位 1 是
+            //附加属性值
+            $data['setting'] = serialize($_POST['setting']);
+            $data['unsetgroupids'] = isset($_POST['unsetgroupids']) ? implode(',', $_POST['unsetgroupids']) : '';
+            $data['unsetroleids'] = isset($_POST['unsetroleids']) ? implode(',', $_POST['unsetroleids']) : '';
+            //表单令牌
+            $data[C("TOKEN_NAME")] = $_POST[C("TOKEN_NAME")];
+            
+            //检查字段是否允许修改
+            if (in_array($fielddata['field'], $forbid_delete)) {
+                unset($data['field']);
+            } else {
+                //更改字段
+                require($this->fields . 'edit.sql.php');
+            }
+            
+            $editdata = $this->modelfield->create($data);
+            if ($editdata) {
+                //20120719 防止反斜杠丢失。
+                $editdata['pattern'] = Input::getVar($_POST['pattern']); //数据校验正则
+                if ($this->modelfield->save($editdata) !== false) {
+                    $this->assign("jumpUrl", U("Sitemodel_field/index", array("modelid" => $modelid)));
+                    $this->success("更新成功！");
+                } else {
+                    $this->error("更新失败！");
+                }
+            } else {
+                $this->error($this->modelfield->getError());
+            }
+        } else {
+            //模型ID
+            $modelid = (int) $_GET['modelid'];
+            //字段ID
+            $fieldid = (int) $_GET['fieldid'];
+            //模型信息
+            $modedata = D("Model")->where(array("modelid" => $modelid))->find();
+            //字段信息
+            $fielddata = $this->modelfield->where(array("fieldid" => $fieldid, "modelid" => $modelid))->find();
+
+            extract($fielddata);
+            //载入对应字段配置
+            $fiepath = $this->fields . $formtype . "/";
+            require($fiepath . "config.inc.php");
+            //将序列化的转换为数组
+            $setting = unserialize($setting);
+            //打开缓冲区
+            ob_start();
+            include $fiepath . 'field_edit_form.inc.php';
+            $form_data = ob_get_contents();
+            //关闭缓冲
+            ob_end_clean();
+            //载入字段配置
+            require $this->fields . "fields.inc.php";
+            //字段类型过滤
+            foreach ($fields as $_k => $_v) {
+//                if (in_array($_k, $not_allow_fields) || in_array($_k, $exists_field) && in_array($_k, $unique_fields))
+//                    continue;
+                $all_field[$_k] = $_v;
+            }
+            //var_dump($all_field);exit;
+            //不允许删除的字段，这些字段讲不会在字段添加处显示
+            $this->assign("not_allow_fields", $not_allow_fields);
+            //允许添加但必须唯一的字段
+            $this->assign("unique_fields", $unique_fields);
+            //禁止被禁用的字段列表
+            $this->assign("forbid_fields", $forbid_fields);
+            //禁止被删除的字段列表
+            $this->assign("forbid_delete", $forbid_delete);
+            //可以追加 JS和CSS 的字段
+            $this->assign("att_css_js", $att_css_js);
+
+            $this->assign("all_field", $all_field);
+            //附加属性
+            $this->assign("form_data", $form_data);
+            $this->assign("modelid", $modelid);
+            $this->assign("fieldid", $fieldid);
+            $this->assign("setting", $setting);
+            //字段信息分配到模板
+            $this->assign("data", $fielddata);
+            $this->assign("modelinfo", $modedata);
+            $this->display();
+        }
+    }
+
+    /**
+     * 增加字段
+     */
+    public function add() {
+        if (IS_POST) {
+            require $this->fields . "fields.inc.php";
+            //读取模型配置 以后优化缓存形式
+            $model_cache = F("Model");
+            //模型ID
+            $modelid = $this->_post("modelid");
+            //表名获取
+            $model_table = $model_cache[$modelid]['tablename'];
+            //完整表名获取 判断主表 还是副表 主表是系统字段
+            $tablename = $this->_post("issystem") ? C("DB_PREFIX") . $model_table : C("DB_PREFIX") . $model_table . "_data";
+            //所增加的字段名
+            $field = $_POST['field'];
+            //字符长度取值范围
+            $minlength = $_POST['minlength'] ? $_POST['minlength'] : 0;
+            $maxlength = $_POST['maxlength'] ? $_POST['maxlength'] : 0;
+            //字段类型
+            $fieldtype = $_POST['formtype'];
+            if (empty($fieldtype)) {
+                $this->error("请选择字段类型！");
+            }
+            //载入对应字段配置信息
+            $fiepath = $this->fields . $fieldtype . "/";
+            require($fiepath . "config.inc.php");
+
+            //根据字段设置临时更改字段类型，否则使用字段配置文件配置的类型
+            if (isset($_POST['setting']['fieldtype'])) {
+                $field_type = $_POST['setting']['fieldtype'];
+            }
+
+            //特定字段类型强制使用特定字段名
+            if(in_array($fieldtype,$not_allow_fields) || in_array($fieldtype,$unique_fields)){
+                $field = $fieldtype;
+            }
+            
+            //增加字段所需配置信息
+            $fieldarray = array(
+                "tablename" => $tablename,
+                "fieldname" => $field,
+                "maxlength" => $maxlength,
+                "minlength" => $minlength
+            );
+            
+            $data['formtype'] = $fieldtype; //字段类型
+            $data['issystem'] = $_POST['issystem'] ? 1 : 0; //作为主表字段
+            $data['field'] = $field; //字段名
+            $data['name'] = $_POST['name']; //字段别名
+            $data['tips'] = $_POST['tips']; //字段提示
+            $data['formattribute'] = $_POST['formattribute']; //表单附加属性
+            $data['css'] = $_POST['css']; //表单样式名
+            $data['minlength'] = $minlength; //最小值
+            $data['maxlength'] = $maxlength; //最大值
+            $data['pattern'] = $_POST['pattern']; //数据校验正则
+            $data['errortips'] = $_POST['errortips']; //数据校验未通过的提示信息
+            $data['isunique'] = $_POST['isunique'] ? 1 : 0; //值唯一
+            $data['isbase'] = $_POST['isbase'] ? 1 : 0; //作为基本信息
+            $data['issearch'] = $_POST['issearch'] ? 1 : 0; //作为搜索条件
+            $data['isadd'] = $_POST['isadd'] ? 1 : 0; //在前台投稿中显示
+            $data['isfulltext'] = $_POST['isfulltext'] ? 1 : 0; //作为全站搜索信息
+            $data['isomnipotent'] = $_POST['isomnipotent'] ? 1 : 0; //作为万能字段的附属字段 1 是
+            $data['isposition'] = $_POST['isposition'] ? 1 : 0; //是否入库到推荐位 1 是
+            $data['modelid'] = $_POST['modelid']; //模型id
+            //附加属性值
+            $data['setting'] = serialize($_POST['setting']);
+            $data['unsetgroupids'] = isset($_POST['unsetgroupids']) ? implode(',', $_POST['unsetgroupids']) : '';
+            $data['unsetroleids'] = isset($_POST['unsetroleids']) ? implode(',', $_POST['unsetroleids']) : '';
+            //表单令牌
+            $data[C("TOKEN_NAME")] = $_POST[C("TOKEN_NAME")];
+            $cda = $this->modelfield->create($data);
+            if ($cda) {
+                //20120719 防止反斜杠丢失。
+                $cda['pattern'] = Input::getVar($_POST['pattern']); //数据校验正则
+                $addfieldstatus = $this->modelfield->addfield($field_type, $fieldarray);
+                if ($addfieldstatus) {
+                    if (!$this->modelfield->add($cda)) {
+                        $this->error("字段增加失败！");
+                    }
+                    $this->assign("jumpUrl", U("Sitemodel_field/index", array("modelid" => $_POST['modelid'])));
+                    $this->success("添加字段成功！");
+                } else {
+                    $this->error("添加字段失败！");
+                }
+            } else {
+                $this->error($this->modelfield->getError());
+            }
+        } else {
+            require $this->fields . "fields.inc.php";
+            $modelid = $this->_get("modelid");
+            if (!$modelid) {
+                $this->error("请选择需要添加字段的模型！");
+            }
+            $f_datas = $this->modelfield->where(array("modelid" => $modelid))->getField("field,field,name");
+            foreach ($f_datas as $_k => $_v) {
+                $exists_field[] = $_v['field'];
+            }
+            //字段类型过滤
+            foreach ($fields as $_k => $_v) {
+                if (in_array($_k, $not_allow_fields) || in_array($_k, $exists_field) && in_array($_k, $unique_fields))
+                    continue;
+                $all_field[$_k] = $_v;
+            }
+
+            //不允许删除的字段，这些字段讲不会在字段添加处显示
+            $this->assign("not_allow_fields", $not_allow_fields);
+            //允许添加但必须唯一的字段
+            $this->assign("unique_fields", $unique_fields);
+            //禁止被禁用的字段列表
+            $this->assign("forbid_fields", $forbid_fields);
+            //禁止被删除的字段列表
+            $this->assign("forbid_delete", $forbid_delete);
+            //可以追加 JS和CSS 的字段
+            $this->assign("att_css_js", $att_css_js);
+
+            $this->assign("all_field", $all_field);
+            $modelid = $this->_get("modelid");
+            $model = D("Model")->where(array("modelid" => $modelid))->find();
+            $this->assign("modelinfo", $model);
+            $this->assign("modelid", $modelid);
+            $this->display();
+        }
+    }
+
+    /**
+     * 删除字段
+     */
+    public function delete() {
+        //载入字段配置文件
+        require $this->fields . "fields.inc.php";
+        $fieldid = $this->_get("fieldid");
+        $modelid = $this->_get("modelid");
+        $field = $this->modelfield->where(array("fieldid" => $fieldid, "modelid" => $modelid))->find();
+        if (empty($field)) {
+            $this->error("需要删除的字段不存在！");
+        }
+        //检查是否允许被删除
+        if (in_array($field['field'], $forbid_delete)) {
+            $this->error("该字段不允许被删除！");
+        }
+
+        $model = F("Model");
+        $tbname = $model[$field['modelid']]['tablename'];
+        $issystem = $field['issystem'];
+        if ($issystem == 0) {
+            $tbname = $tbname . "_data";
+        }
+        //删除字段信息
+        $status = $this->modelfield->where(array("fieldid" => $fieldid, "modelid" => $modelid))->delete();
+        if ($status) {
+            //删除表中字段
+            $this->modelfield->drop_field($tbname, $field['field']);
+            $this->success("字段删除成功！");
+        } else {
+            $this->error("删除字段失败！");
+        }
+    }
+
+    /**
+     * 字段排序
+     */
+    public function listorder() {
+        if (IS_POST) {
+            foreach ($_POST['listorders'] as $id => $listorder) {
+                $this->modelfield->where(array('fieldid' => $id))->save(array('listorder' => $listorder));
+            }
+            $this->success("排序更新成功！");
+        } else {
+            $this->error("排序失败！");
+        }
+    }
+
+    /**
+     * 验证字段是否重复 AJAX
+     */
+    public function public_checkfield() {
+        //新字段名称
+        $field = $this->_get("field");
+        //原来字段名
+        $oldfield = $this->_get("oldfield");
+        if ($field == $oldfield) {
+            $this->ajaxReturn($field, "字段没有重复！", true);
+        }
+        //模型ID
+        $modelid = $this->_get("modelid");
+
+        $status = $this->modelfield->where(array("field" => $field, "modelid" => $modelid))->count();
+        if ($status == 0) {
+            $this->ajaxReturn($field, "字段没有重复！", true);
+        } else {
+            $this->ajaxReturn($field, "字段有重复！", false);
+        }
+    }
+
+    /**
+     * 字段属性配置
+     */
+    public function public_field_setting() {
+        //字段类型
+        $fieldtype = $this->_get("fieldtype");
+        $fiepath = $this->fields . $fieldtype . "/";
+        //载入对应字段配置文件 config.inc.php 
+        require($fiepath . "config.inc.php");
+        ob_start();
+        include $fiepath . "field_add_form.inc.php";
+        $data_setting = ob_get_contents();
+        ob_end_clean();
+        $settings = array('field_basic_table' => $field_basic_table, 'field_minlength' => $field_minlength, 'field_maxlength' => $field_maxlength, 'field_allow_search' => $field_allow_search, 'field_allow_fulltext' => $field_allow_fulltext, 'field_allow_isunique' => $field_allow_isunique, 'setting' => $data_setting);
+        echo json_encode($settings);
+        return true;
+    }
+
+    /**
+     * 字段的启用与禁用 
+     */
+    public function disabled() {
+        //载入字段配置文件
+        require($this->fields . "fields.inc.php");
+        $fieldid = (int) $this->_get("fieldid");
+        $field = $this->modelfield->where(array('fieldid' => $fieldid))->find();
+        if (!$field) {
+            $this->error("该字段不存在！");
+        }
+        //检查是否允许被删除
+        if (in_array($field['field'],$forbid_fields) || in_array($field['field'], $forbid_delete)) {
+            $this->error("该字段不允许被禁用！");
+        }
+        $disabled = (int) $_GET['disabled'] ? 0 : 1;
+        $status = $this->modelfield->where(array('fieldid' => $fieldid))->save(array('disabled' => $disabled));
+        if ($status) {
+            $this->success("操作成功！");
+        } else {
+            $this->error("操作失败！");
+        }
+    }
+
+    /**
+     * 模型预览 
+     */
+    public function priview() {
+        import('Form');
+        //模型ID
+        $modelid = $this->_get('modelid');
+        if (empty($modelid)) {
+            $this->error("请指定模型！");
+        }
+        //载入 content_form.class.php 缓存文件
+        require_cache(RUNTIME_PATH . 'content_form.class.php');
+        $content_form = new content_form($modelid);
+        //生成对应字段的输入表单
+        $forminfos = $content_form->get();
+        //生成对应的JS验证规则
+        $formValidateRules = $content_form->formValidateRules;
+        //js验证不通过提示语
+        $formValidateMessages = $content_form->formValidateMessages;
+        //js
+        $formJavascript = $content_form->formJavascript;
+        //获取当前模型信息
+        $r = M("Model")->where(array("modelid" => $modelid))->find();
+        $this->assign("r", $r);
+        $this->assign("forminfos", $forminfos);
+        $this->assign("formValidateRules", $formValidateRules);
+        $this->assign("formValidateMessages", $formValidateMessages);
+        $this->assign("formJavascript", $formJavascript);
+        $this->display();
+    }
+
+}
+
+?>

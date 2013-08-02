@@ -1,0 +1,9 @@
+tag标签说明：
+
+1、Collection_col_url_list 采集网址入库前，$data 参数包含有 history 和 content 
+
+2、Collection_col_content 采集内容入库前
+
+3、Collection_import_content 采集内容导入到模型前
+
+4、Collection_content_del 删除已采集文章前 参数 采集节点信息
